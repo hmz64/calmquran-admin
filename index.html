@@ -288,19 +288,52 @@
   </div>
 
   <script>
-    const apiBase = 'https://calmquran.api.rinteractive.my.id';
-    let adminToken = localStorage.getItem('calmquran_admin_token') || '';
-    let adminProfile = JSON.parse(localStorage.getItem('calmquran_admin_profile') || 'null');
+    const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:8080' : 'https://calmquran.api.rinteractive.my.id';
+    let adminProfile = null;
     let qarisList = [];
 
-    document.addEventListener('DOMContentLoaded', () => {
+    async function authenticatedFetch(url, options = {}) {
+      options.credentials = 'include';
+      let res = await fetch(url, options);
+
+      if (res.status === 401 && !url.endsWith('/api/admin/login') && !url.endsWith('/api/admin/refresh')) {
+        try {
+          const refreshRes = await fetch(`${apiBase}/api/admin/refresh`, {
+            method: 'POST',
+            credentials: 'include'
+          });
+          if (refreshRes.ok) {
+            res = await fetch(url, options);
+          } else {
+            showToast('Session expired. Please log in again.', 'error');
+            handleAdminSignOut(false);
+          }
+        } catch (err) {
+          handleAdminSignOut(false);
+        }
+      }
+      return res;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
-      if (adminToken && adminProfile) {
-        showDashboard();
-      } else {
+      checkAuthSession();
+    });
+
+    async function checkAuthSession() {
+      try {
+        const res = await authenticatedFetch(`${apiBase}/api/admin/me`);
+        if (res.ok) {
+          const data = await res.json();
+          adminProfile = data.admin;
+          showDashboard();
+        } else {
+          showLogin();
+        }
+      } catch (err) {
         showLogin();
       }
-    });
+    }
 
     function showToast(msg, type = 'success') {
       const container = document.getElementById('toastContainer');
@@ -339,17 +372,14 @@
         const res = await fetch(`${apiBase}/api/admin/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ email, password }),
         });
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Invalid admin credentials');
 
-        adminToken = data.token;
         adminProfile = data.admin;
-        localStorage.setItem('calmquran_admin_token', adminToken);
-        localStorage.setItem('calmquran_admin_profile', JSON.stringify(adminProfile));
-
         showToast('Welcome back, Admin!', 'success');
         showDashboard();
       } catch (err) {
@@ -361,12 +391,15 @@
       }
     }
 
-    function handleAdminSignOut() {
-      adminToken = '';
+    async function handleAdminSignOut(notify = true) {
+      try {
+        await fetch(`${apiBase}/api/admin/logout`, {
+          method: 'POST',
+          credentials: 'include'
+        });
+      } catch (err) {}
       adminProfile = null;
-      localStorage.removeItem('calmquran_admin_token');
-      localStorage.removeItem('calmquran_admin_profile');
-      showToast('Signed out from Admin Portal', 'info');
+      if (notify) showToast('Signed out from Admin Portal', 'info');
       showLogin();
     }
 
@@ -471,9 +504,7 @@
         if (photoFile) {
           const ext = photoFile.name.split('.').pop() || 'jpg';
           const key = `qaris/photos/${slug}.${ext}`;
-          const presignedRes = await fetch(`${apiBase}/api/admin/presigned-upload-url?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(photoFile.type || 'image/jpeg')}`, {
-            headers: { 'Authorization': `Bearer ${adminToken}` },
-          });
+          const presignedRes = await authenticatedFetch(`${apiBase}/api/admin/presigned-upload-url?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(photoFile.type || 'image/jpeg')}`);
           if (!presignedRes.ok) throw new Error('Failed to get presigned upload URL');
           const presignedData = await presignedRes.json();
 
@@ -489,12 +520,9 @@
         const url = editId ? `${apiBase}/api/admin/qaris/${editId}` : `${apiBase}/api/admin/qaris`;
         const method = editId ? 'PUT' : 'POST';
 
-        const res = await fetch(url, {
+        const res = await authenticatedFetch(url, {
           method,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminToken}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, slug, description, photo_url: photoUrl, is_popular: isPopular }),
         });
 
@@ -521,9 +549,8 @@
       if (!confirm(`Are you sure you want to delete "${qName}"?`)) return;
 
       try {
-        const res = await fetch(`${apiBase}/api/admin/qaris/${id}`, {
+        const res = await authenticatedFetch(`${apiBase}/api/admin/qaris/${id}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${adminToken}` },
         });
         if (!res.ok) {
           const errData = await res.json();
@@ -608,9 +635,7 @@
         const paddedNum = String(surahNum).padStart(3, '0');
         const key = `surahs/${qariSlug}/${paddedNum}.mp3`;
 
-        const presignedRes = await fetch(`${apiBase}/api/admin/presigned-upload-url?key=${encodeURIComponent(key)}&contentType=audio/mpeg`, {
-          headers: { 'Authorization': `Bearer ${adminToken}` },
-        });
+        const presignedRes = await authenticatedFetch(`${apiBase}/api/admin/presigned-upload-url?key=${encodeURIComponent(key)}&contentType=audio/mpeg`);
         if (!presignedRes.ok) throw new Error('Failed to obtain direct B2 upload signature');
         const presignedData = await presignedRes.json();
 
