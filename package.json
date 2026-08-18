@@ -1,0 +1,11 @@
+{
+  "name": "calmquran-admin",
+  "version": "1.0.0",
+  "description": "CalmQuran Admin Control Panel for Qari & Surah Audio Management",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

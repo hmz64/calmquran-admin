@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CalmQuran — Admin Control Panel</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              900: '#064e3b',
+            },
+            surface: {
+              800: '#161b22',
+              900: '#0d1117',
+              950: '#010409',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0d1117;
+      color: #f0f6fc;
+    }
+    .glass-card {
+      background: rgba(22, 27, 34, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(13, 17, 23, 0.5);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(16, 185, 129, 0.4);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-50 glass-card border-b border-gray-800/80 px-4 lg:px-8 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-900/40">
+        <i data-lucide="moon" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold text-white tracking-wide flex items-center gap-2">
+          CalmQuran <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">ADMIN PANEL</span>
+        </h1>
+        <p class="text-xs text-gray-400">Manage Qari Profiles & Surah Audio Storage</p>
+      </div>
+    </div>
+
+    <!-- API Connection Switcher -->
+    <div class="flex items-center gap-3">
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-900/90 border border-gray-800 text-xs">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-gray-400">Server:</span>
+        <select id="apiBaseSelect" onchange="updateApiBase()" class="bg-transparent text-emerald-400 font-medium focus:outline-none cursor-pointer">
+          <option value="https://calmquran.api.rinteractive.my.id" class="bg-gray-900 text-white">Railway Production (https://calmquran.api.rinteractive.my.id)</option>
+          <option value="http://localhost:8080" class="bg-gray-900 text-white">Local Development (http://localhost:8080)</option>
+          <option value="http://192.168.1.15:8080" class="bg-gray-900 text-white">Local Network IP (http://192.168.1.15:8080)</option>
+        </select>
+      </div>
+      <button onclick="checkHealth()" class="p-2 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-gray-300 transition-all border border-gray-700" title="Check Connection">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
+
+    <!-- Overview Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="glass-card rounded-2xl p-5 flex items-center justify-between border border-gray-800/80">
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Qaris</p>
+          <h3 id="statTotalQaris" class="text-2xl font-extrabold text-white mt-1">17</h3>
+          <p class="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Indexed in Database
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <i data-lucide="users" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 flex items-center justify-between border border-gray-800/80">
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Surahs</p>
+          <h3 class="text-2xl font-extrabold text-white mt-1">114</h3>
+          <p class="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+            <i data-lucide="book-open" class="w-3.5 h-3.5"></i> Surah 1 to 114
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+          <i data-lucide="file-audio" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 flex items-center justify-between border border-gray-800/80">
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Storage Engine</p>
+          <h3 class="text-xl font-bold text-white mt-1">Backblaze B2</h3>
+          <p class="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+            <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Bucket: calmquran-media
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+          <i data-lucide="hard-drive" class="w-6 h-6"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Navigation Tabs -->
+    <div class="flex items-center gap-2 border-b border-gray-800 pb-2">
+      <button id="tabBtnQari" onclick="switchTab('qari')" class="px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 bg-emerald-500 text-white shadow-lg shadow-emerald-900/30">
+        <i data-lucide="user-plus" class="w-4 h-4"></i> Qari Profiles
+      </button>
+      <button id="tabBtnUpload" onclick="switchTab('upload')" class="px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 text-gray-400 hover:text-white hover:bg-gray-800/50">
+        <i data-lucide="upload-cloud" class="w-4 h-4"></i> Upload Surah Audio
+      </button>
+    </div>
+
+    <!-- TAB 1: Qari Management -->
+    <div id="tabContentQari" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Form Add/Edit Qari -->
+        <div class="glass-card rounded-2xl p-6 border border-gray-800/80 space-y-4">
+          <h2 class="text-lg font-bold text-white flex items-center gap-2 border-b border-gray-800 pb-3">
+            <i data-lucide="user-check" class="w-5 h-5 text-emerald-400"></i> Add New Qari Profile
+          </h2>
+          
+          <form id="qariForm" onsubmit="handleSaveQari(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-400 mb-1.5">Qari Full Name</label>
+              <input type="text" id="qariName" required placeholder="e.g. Mishary Rashid Alafasy" oninput="autoSlugify(this.value)" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-all text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-gray-400 mb-1.5">Qari Slug (Unique Key)</label>
+              <input type="text" id="qariSlug" required placeholder="e.g. mishary-rashid-alafasy" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-emerald-400 font-mono placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-all text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-gray-400 mb-1.5">Photo Image (Upload or URL)</label>
+              <div class="flex flex-col gap-2">
+                <input type="file" id="qariPhotoFile" accept="image/*" class="text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-500/20 file:text-emerald-400 hover:file:bg-emerald-500/30 cursor-pointer">
+                <span class="text-[10px] text-gray-500 text-center font-medium">-- OR Enter Direct Photo URL --</span>
+                <input type="url" id="qariPhotoUrl" placeholder="https://..." class="w-full px-3.5 py-2 py-2 rounded-xl bg-gray-900 border border-gray-800 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-all text-xs">
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2">
+              <input type="checkbox" id="qariIsPopular" class="w-4 h-4 rounded border-gray-800 text-emerald-500 focus:ring-emerald-500 bg-gray-900">
+              <label for="qariIsPopular" class="text-xs font-medium text-gray-300">Set as Popular Qari (Show on Home Screen)</label>
+            </div>
+
+            <button type="submit" id="btnSaveQari" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/40 transition-all flex items-center justify-center gap-2">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i> Save Qari Profile
+            </button>
+          </form>
+        </div>
+
+        <!-- List of Existing Qaris -->
+        <div class="lg:col-span-2 glass-card rounded-2xl p-6 border border-gray-800/80 flex flex-col">
+          <div class="flex items-center justify-between border-b border-gray-800 pb-3 mb-4">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="users" class="w-5 h-5 text-amber-400"></i> Active Qaris Registry
+            </h2>
+            <button onclick="loadQaris()" class="text-xs text-gray-400 hover:text-emerald-400 flex items-center gap-1">
+              <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> Refresh
+            </button>
+          </div>
+
+          <div id="qariGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto max-h-[500px] custom-scrollbar pr-1">
+            <div class="col-span-full py-12 text-center text-gray-500">Loading Qaris...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: Upload Surah Audio -->
+    <div id="tabContentUpload" class="hidden space-y-6">
+      <div class="glass-card rounded-2xl p-6 border border-gray-800/80 max-w-3xl mx-auto space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="upload-cloud" class="w-6 h-6 text-emerald-400"></i> Upload Surah Audio to Backblaze B2
+          </h2>
+          <p class="text-xs text-gray-400 mt-1">Directly streams to CalmQuran mobile app worldwide</p>
+        </div>
+
+        <form id="uploadForm" onsubmit="handleAudioUpload(event)" class="space-y-5">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-400 mb-1.5">Select Qari</label>
+              <select id="uploadQariSelect" required class="w-full px-3.5 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white focus:outline-none focus:border-emerald-500 text-sm">
+                <option value="">Select Qari...</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-gray-400 mb-1.5">Select Surah</label>
+              <select id="uploadSurahSelect" required class="w-full px-3.5 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white focus:outline-none focus:border-emerald-500 text-sm">
+                <option value="">Select Surah...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Drag & Drop Zone -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-400 mb-1.5">Surah Audio MP3 File</label>
+            <div id="dropZone" onclick="document.getElementById('audioFileInput').click()" class="border-2 border-dashed border-gray-700 hover:border-emerald-500 rounded-2xl p-8 text-center cursor-pointer transition-all bg-gray-900/50 group">
+              <input type="file" id="audioFileInput" accept="audio/mp3,audio/mpeg" required class="hidden" onchange="handleFileSelected(this)">
+              <div class="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center group-hover:scale-110 transition-transform">
+                <i data-lucide="music" class="w-7 h-7"></i>
+              </div>
+              <p id="fileLabel" class="text-sm font-semibold text-gray-300 mt-3">Click or Drag & Drop MP3 File Here</p>
+              <p class="text-xs text-gray-500 mt-1">Supports High-Quality MP3 files up to 100MB</p>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div id="uploadProgressContainer" class="hidden space-y-2">
+            <div class="flex justify-between text-xs font-semibold">
+              <span text-emerald-400>Uploading to Backblaze B2...</span>
+              <span id="uploadPercentage" class="text-emerald-400">0%</span>
+            </div>
+            <div class="w-full bg-gray-900 rounded-full h-2 overflow-hidden border border-gray-800">
+              <div id="uploadProgressBar" class="bg-emerald-500 h-full w-0 transition-all duration-200"></div>
+            </div>
+          </div>
+
+          <button type="submit" id="btnUploadAudio" class="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/40 transition-all flex items-center justify-center gap-2">
+            <i data-lucide="upload" class="w-4 h-4"></i> Upload Audio to B2 Bucket
+          </button>
+        </form>
+
+        <!-- Preview Audio Player -->
+        <div id="audioPreviewCard" class="hidden glass-card rounded-2xl p-4 border border-gray-800 space-y-3">
+          <div class="flex items-center justify-between text-xs font-semibold text-emerald-400">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="check-circle" class="w-4 h-4"></i> Successfully Uploaded & Streamable
+            </span>
+            <a id="previewDirectLink" href="#" target="_blank" class="hover:underline flex items-center gap-1">
+              Direct Link <i data-lucide="external-link" class="w-3 h-3"></i>
+            </a>
+          </div>
+          <audio id="audioPreviewPlayer" controls class="w-full h-10 rounded-xl bg-gray-900"></audio>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="mt-auto border-t border-gray-800/80 py-4 text-center text-xs text-gray-500">
+    CalmQuran Admin Panel &copy; 2026. Connected to Backblaze B2 & Supabase Cloud.
+  </footer>
+
+  <script>
+    // App State
+    let apiBase = localStorage.getItem('calmquran_admin_api') || 'https://calmquran.api.rinteractive.my.id';
+    let qarisList = [];
+
+    const SURAHS = [
+      { num: 1, name: "Al-Fatihah" }, { num: 2, name: "Al-Baqarah" }, { num: 3, name: "Ali 'Imran" },
+      { num: 4, name: "An-Nisa'" }, { num: 5, name: "Al-Ma'idah" }, { num: 6, name: "Al-An'am" },
+      { num: 7, name: "Al-A'raf" }, { num: 8, name: "Al-Anfal" }, { num: 9, name: "At-Tawbah" },
+      { num: 10, name: "Yunus" }, { num: 11, name: "Hud" }, { num: 12, name: "Yusuf" },
+      { num: 13, name: "Ar-Ra'd" }, { num: 14, name: "Ibrahim" }, { num: 15, name: "Al-Hijr" },
+      { num: 16, name: "An-Nahl" }, { num: 17, name: "Al-Isra'" }, { num: 18, name: "Al-Kahf" },
+      { num: 19, name: "Maryam" }, { num: 20, name: "Taha" }, { num: 21, name: "Al-Anbiya'" },
+      { num: 22, name: "Al-Hajj" }, { num: 23, name: "Al-Mu'minun" }, { num: 24, name: "An-Nur" },
+      { num: 25, name: "Al-Furqan" }, { num: 26, name: "Ash-Shu'ara'" }, { num: 27, name: "An-Naml" },
+      { num: 28, name: "Al-Qasas" }, { num: 29, name: "Al-'Ankabut" }, { num: 30, name: "Ar-Rum" },
+      { num: 36, name: "Ya-Sin" }, { num: 55, name: "Ar-Rahman" }, { num: 56, name: "Al-Waqi'ah" },
+      { num: 67, name: "Al-Mulk" }, { num: 112, name: "Al-Ikhlas" }, { num: 113, name: "Al-Falaq" }, { num: 114, name: "An-Nas" }
+    ];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      document.getElementById('apiBaseSelect').value = apiBase;
+      populateSurahDropdown();
+      loadQaris();
+    });
+
+    function updateApiBase() {
+      apiBase = document.getElementById('apiBaseSelect').value;
+      localStorage.setItem('calmquran_admin_api', apiBase);
+      showToast('API Endpoint updated to: ' + apiBase, 'info');
+      loadQaris();
+    }
+
+    function showToast(msg, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const bg = type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-rose-600' : 'bg-sky-600');
+      toast.className = `${bg} text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl transition-all duration-300 pointer-events-auto flex items-center gap-2`;
+      toast.innerHTML = `<span>${msg}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    function autoSlugify(text) {
+      const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      document.getElementById('qariSlug').value = slug;
+    }
+
+    function populateSurahDropdown() {
+      const select = document.getElementById('uploadSurahSelect');
+      select.innerHTML = '<option value="">Select Surah...</option>';
+      for (let i = 1; i <= 114; i++) {
+        const found = SURAHS.find(s => s.num === i);
+        const name = found ? found.name : `Surah ${i}`;
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `${i}. ${name}`;
+        select.appendChild(opt);
+      }
+    }
+
+    async function checkHealth() {
+      try {
+        const res = await fetch(`${apiBase}/health`);
+        if (res.ok) {
+          showToast('Backend Server is Healthy & Connected!', 'success');
+        } else {
+          showToast('Backend Server returned status ' + res.status, 'error');
+        }
+      } catch (err) {
+        showToast('Failed to connect to backend server', 'error');
+      }
+    }
+
+    async function loadQaris() {
+      try {
+        const res = await fetch(`${apiBase}/api/qaris`);
+        if (!res.ok) throw new Error('Failed to load qaris');
+        qarisList = await res.json();
+        
+        document.getElementById('statTotalQaris').textContent = qarisList.length;
+        renderQarisGrid();
+        populateQariDropdown();
+      } catch (err) {
+        console.error(err);
+        showToast('Error loading Qari list', 'error');
+      }
+    }
+
+    function renderQarisGrid() {
+      const grid = document.getElementById('qariGrid');
+      if (qarisList.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-12 text-center text-gray-500">No Qaris registered yet</div>`;
+        return;
+      }
+
+      grid.innerHTML = qarisList.map(q => `
+        <div class="glass-card rounded-xl p-3 flex items-center justify-between border border-gray-800">
+          <div class="flex items-center gap-3">
+            <img src="${q.photo_url || 'https://via.placeholder.com/100'}" class="w-11 h-11 rounded-xl object-cover border border-gray-700">
+            <div>
+              <h4 class="text-sm font-bold text-white">${q.name}</h4>
+              <p class="text-xs text-emerald-400 font-mono">${q.slug || q.id}</p>
+            </div>
+          </div>
+          ${q.is_popular ? '<span class="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">Popular</span>' : ''}
+        </div>
+      `).join('');
+    }
+
+    function populateQariDropdown() {
+      const select = document.getElementById('uploadQariSelect');
+      select.innerHTML = '<option value="">Select Qari...</option>';
+      qarisList.forEach(q => {
+        const opt = document.createElement('option');
+        opt.value = q.slug || q.id;
+        opt.textContent = q.name;
+        select.appendChild(opt);
+      });
+    }
+
+    function switchTab(tab) {
+      const tabQari = document.getElementById('tabContentQari');
+      const tabUpload = document.getElementById('tabContentUpload');
+      const btnQari = document.getElementById('tabBtnQari');
+      const btnUpload = document.getElementById('tabBtnUpload');
+
+      if (tab === 'qari') {
+        tabQari.classList.remove('hidden');
+        tabUpload.classList.add('hidden');
+        btnQari.className = "px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 bg-emerald-500 text-white shadow-lg shadow-emerald-900/30";
+        btnUpload.className = "px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 text-gray-400 hover:text-white hover:bg-gray-800/50";
+      } else {
+        tabQari.classList.add('hidden');
+        tabUpload.classList.remove('hidden');
+        btnUpload.className = "px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 bg-emerald-500 text-white shadow-lg shadow-emerald-900/30";
+        btnQari.className = "px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 text-gray-400 hover:text-white hover:bg-gray-800/50";
+      }
+    }
+
+    async function handleSaveQari(e) {
+      e.preventDefault();
+      const name = document.getElementById('qariName').value;
+      const slug = document.getElementById('qariSlug').value;
+      const photoFile = document.getElementById('qariPhotoFile').files[0];
+      let photoUrl = document.getElementById('qariPhotoUrl').value;
+      const isPopular = document.getElementById('qariIsPopular').checked;
+
+      const btn = document.getElementById('btnSaveQari');
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Saving...`;
+      lucide.createIcons();
+
+      try {
+        if (photoFile) {
+          const formData = new FormData();
+          formData.append('photo', photoFile);
+          formData.append('slug', slug);
+          const uploadRes = await fetch(`${apiBase}/api/admin/upload-photo`, {
+            method: 'POST',
+            body: formData,
+          });
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            photoUrl = uploadData.photo_url;
+          }
+        }
+
+        const res = await fetch(`${apiBase}/api/admin/qaris`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, slug, photo_url: photoUrl, is_popular: isPopular }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Failed to save Qari');
+        }
+
+        showToast(`Qari "${name}" saved successfully!`, 'success');
+        document.getElementById('qariForm').reset();
+        loadQaris();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> Save Qari Profile`;
+        lucide.createIcons();
+      }
+    }
+
+    function handleFileSelected(input) {
+      if (input.files && input.files[0]) {
+        document.getElementById('fileLabel').textContent = input.files[0].name + ` (${(input.files[0].size / (1024 * 1024)).toFixed(2)} MB)`;
+      }
+    }
+
+    async function handleAudioUpload(e) {
+      e.preventDefault();
+      const qariSlug = document.getElementById('uploadQariSelect').value;
+      const surahNum = document.getElementById('uploadSurahSelect').value;
+      const audioFile = document.getElementById('audioFileInput').files[0];
+
+      if (!qariSlug || !surahNum || !audioFile) {
+        showToast('Please fill in all upload fields', 'error');
+        return;
+      }
+
+      const progressContainer = document.getElementById('uploadProgressContainer');
+      const progressBar = document.getElementById('uploadProgressBar');
+      const progressPercent = document.getElementById('uploadPercentage');
+      const btn = document.getElementById('btnUploadAudio');
+
+      progressContainer.classList.remove('hidden');
+      progressBar.style.width = '20%';
+      progressPercent.textContent = '20%';
+      btn.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append('audio', audioFile);
+        formData.append('qari_slug', qariSlug);
+        formData.append('surah_number', surahNum);
+
+        progressBar.style.width = '60%';
+        progressPercent.textContent = '60%';
+
+        const res = await fetch(`${apiBase}/api/admin/upload-audio`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Failed to upload audio');
+        }
+
+        const data = await res.json();
+        progressBar.style.width = '100%';
+        progressPercent.textContent = '100%';
+
+        showToast(`Surah ${surahNum} audio uploaded to B2!`, 'success');
+
+        const playerCard = document.getElementById('audioPreviewCard');
+        const player = document.getElementById('audioPreviewPlayer');
+        const link = document.getElementById('previewDirectLink');
+
+        playerCard.classList.remove('hidden');
+        player.src = data.audio_url;
+        link.href = data.audio_url;
+
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => progressContainer.classList.add('hidden'), 3000);
+      }
+    }
+  </script>
+</body>
+</html>
