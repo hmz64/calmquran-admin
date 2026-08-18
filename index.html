@@ -454,18 +454,35 @@
       lucide.createIcons();
 
       try {
+    async function handleSaveQari(e) {
+      e.preventDefault();
+      const name = document.getElementById('qariName').value;
+      const slug = document.getElementById('qariSlug').value;
+      const photoFile = document.getElementById('qariPhotoFile').files[0];
+      let photoUrl = document.getElementById('qariPhotoUrl').value;
+      const isPopular = document.getElementById('qariIsPopular').checked;
+
+      const btn = document.getElementById('btnSaveQari');
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Saving...`;
+      lucide.createIcons();
+
+      try {
         if (photoFile) {
-          const formData = new FormData();
-          formData.append('photo', photoFile);
-          formData.append('slug', slug);
-          const uploadRes = await fetch(`${apiBase}/api/admin/upload-photo`, {
-            method: 'POST',
-            body: formData,
+          const ext = photoFile.name.split('.').pop() || 'jpg';
+          const key = `qaris/photos/${slug}.${ext}`;
+          const presignedRes = await fetch(`${apiBase}/api/admin/presigned-upload-url?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(photoFile.type || 'image/jpeg')}`);
+          if (!presignedRes.ok) throw new Error('Failed to get B2 presigned upload URL');
+          const presignedData = await presignedRes.json();
+
+          // Direct Browser -> B2 Upload
+          const putRes = await fetch(presignedData.upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': photoFile.type || 'image/jpeg' },
+            body: photoFile,
           });
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            photoUrl = uploadData.photo_url;
-          }
+          if (!putRes.ok) throw new Error('Direct B2 photo upload failed');
+          photoUrl = presignedData.public_url;
         }
 
         const res = await fetch(`${apiBase}/api/admin/qaris`, {
@@ -514,42 +531,43 @@
       const btn = document.getElementById('btnUploadAudio');
 
       progressContainer.classList.remove('hidden');
-      progressBar.style.width = '20%';
-      progressPercent.textContent = '20%';
+      progressBar.style.width = '15%';
+      progressPercent.textContent = '15%';
       btn.disabled = true;
 
       try {
-        const formData = new FormData();
-        formData.append('audio', audioFile);
-        formData.append('qari_slug', qariSlug);
-        formData.append('surah_number', surahNum);
+        const paddedNum = String(surahNum).padStart(3, '0');
+        const key = `surahs/${qariSlug}/${paddedNum}.mp3`;
 
-        progressBar.style.width = '60%';
-        progressPercent.textContent = '60%';
+        // 1. Get Presigned B2 Upload URL from backend
+        const presignedRes = await fetch(`${apiBase}/api/admin/presigned-upload-url?key=${encodeURIComponent(key)}&contentType=audio/mpeg`);
+        if (!presignedRes.ok) throw new Error('Failed to obtain direct B2 upload signature');
+        const presignedData = await presignedRes.json();
 
-        const res = await fetch(`${apiBase}/api/admin/upload-audio`, {
-          method: 'POST',
-          body: formData,
+        progressBar.style.width = '35%';
+        progressPercent.textContent = '35%';
+
+        // 2. Direct Browser -> Backblaze B2 Upload
+        const putRes = await fetch(presignedData.upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'audio/mpeg' },
+          body: audioFile,
         });
 
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error || 'Failed to upload audio');
-        }
+        if (!putRes.ok) throw new Error('Direct B2 audio upload failed');
 
-        const data = await res.json();
         progressBar.style.width = '100%';
         progressPercent.textContent = '100%';
 
-        showToast(`Surah ${surahNum} audio uploaded to B2!`, 'success');
+        showToast(`Surah ${surahNum} audio uploaded directly to B2 Bucket!`, 'success');
 
         const playerCard = document.getElementById('audioPreviewCard');
         const player = document.getElementById('audioPreviewPlayer');
         const link = document.getElementById('previewDirectLink');
 
         playerCard.classList.remove('hidden');
-        player.src = data.audio_url;
-        link.href = data.audio_url;
+        player.src = presignedData.public_url;
+        link.href = presignedData.public_url;
 
       } catch (err) {
         showToast(err.message, 'error');
