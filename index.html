@@ -330,13 +330,17 @@
     }
 
     async function authenticatedFetch(url, options = {}) {
-      options.headers = { ...(options.headers || {}), 'Authorization': `Bearer ${accessToken}` };
+      options.credentials = 'include';
+      options.headers = { ...(options.headers || {}) };
+      if (accessToken) {
+        options.headers['Authorization'] = `Bearer ${accessToken}`;
+      }
       let res = await fetch(url, options);
 
       if (res.status === 401 && !url.endsWith('/api/admin/login') && !url.endsWith('/api/admin/refresh')) {
         const refreshed = await doRefresh();
         if (refreshed) {
-          options.headers['Authorization'] = `Bearer ${accessToken}`;
+          if (accessToken) options.headers['Authorization'] = `Bearer ${accessToken}`;
           res = await fetch(url, options);
         } else {
           showToast('Session expired. Please log in again.', 'error');
