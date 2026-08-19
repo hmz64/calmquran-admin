@@ -509,6 +509,44 @@
       lucide.createIcons();
     }
 
+    async function uploadFileToB2(file, key, contentType = 'image/jpeg') {
+      try {
+        const presignedRes = await authenticatedFetch(
+          `${apiBase}/api/admin/presigned-upload-url?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(contentType)}`
+        );
+        if (presignedRes.ok) {
+          const presignedData = await presignedRes.json();
+          const putRes = await fetch(presignedData.upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': contentType },
+            body: file,
+          });
+          if (putRes.ok) {
+            return presignedData.public_url;
+          }
+        }
+      } catch (err) {
+        console.warn('Presigned upload failed, trying server fallback...', err);
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('key', key);
+
+      const serverUploadRes = await authenticatedFetch(`${apiBase}/api/admin/upload-file`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!serverUploadRes.ok) {
+        const errData = await serverUploadRes.json();
+        throw new Error(errData.error || 'Failed to upload file');
+      }
+
+      const serverData = await serverUploadRes.json();
+      return serverData.public_url;
+    }
+
     async function handleSaveQari(e) {
       e.preventDefault();
       const editId = document.getElementById('editingQariId').value;
@@ -528,17 +566,7 @@
         if (photoFile) {
           const ext = photoFile.name.split('.').pop() || 'jpg';
           const key = `qaris/photos/${slug}.${ext}`;
-          const presignedRes = await authenticatedFetch(`${apiBase}/api/admin/presigned-upload-url?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(photoFile.type || 'image/jpeg')}`);
-          if (!presignedRes.ok) throw new Error('Failed to get presigned upload URL');
-          const presignedData = await presignedRes.json();
-
-          const putRes = await fetch(presignedData.upload_url, {
-            method: 'PUT',
-            headers: { 'Content-Type': photoFile.type || 'image/jpeg' },
-            body: photoFile,
-          });
-          if (!putRes.ok) throw new Error('Direct B2 photo upload failed');
-          photoUrl = presignedData.public_url;
+          photoUrl = await uploadFileToB2(photoFile, key, photoFile.type || 'image/jpeg');
         }
 
         const url = editId ? `${apiBase}/api/admin/qaris/${editId}` : `${apiBase}/api/admin/qaris`;
@@ -659,33 +687,23 @@
         const paddedNum = String(surahNum).padStart(3, '0');
         const key = `surahs/${qariSlug}/${paddedNum}.mp3`;
 
-        const presignedRes = await authenticatedFetch(`${apiBase}/api/admin/presigned-upload-url?key=${encodeURIComponent(key)}&contentType=audio/mpeg`);
-        if (!presignedRes.ok) throw new Error('Failed to obtain direct B2 upload signature');
-        const presignedData = await presignedRes.json();
+        progressBar.style.width = '40%';
+        progressPercent.textContent = '40%';
 
-        progressBar.style.width = '35%';
-        progressPercent.textContent = '35%';
-
-        const putRes = await fetch(presignedData.upload_url, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'audio/mpeg' },
-          body: audioFile,
-        });
-
-        if (!putRes.ok) throw new Error('Direct B2 audio upload failed');
+        const publicUrl = await uploadFileToB2(audioFile, key, 'audio/mpeg');
 
         progressBar.style.width = '100%';
         progressPercent.textContent = '100%';
 
-        showToast(`Surah ${surahNum} audio uploaded directly to B2 Bucket!`, 'success');
+        showToast(`Surah ${surahNum} audio uploaded to B2 Bucket!`, 'success');
 
         const playerCard = document.getElementById('audioPreviewCard');
         const player = document.getElementById('audioPreviewPlayer');
         const link = document.getElementById('previewDirectLink');
 
         playerCard.classList.remove('hidden');
-        player.src = presignedData.public_url;
-        link.href = presignedData.public_url;
+        player.src = publicUrl;
+        link.href = publicUrl;
 
       } catch (err) {
         showToast(err.message, 'error');
