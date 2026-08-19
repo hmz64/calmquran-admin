@@ -452,10 +452,13 @@
         return;
       }
 
-      grid.innerHTML = qarisList.map(q => `
+      grid.innerHTML = qarisList.map(q => {
+        const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(q.name)}&background=047857&color=fff`;
+        const pUrl = q.photo_url || q.photoUrl || fallbackUrl;
+        return `
         <div class="glass-card rounded-2xl p-4 border border-gray-800 flex flex-col justify-between space-y-3">
           <div class="flex items-start gap-3">
-            <img src="${q.photo_url || q.photoUrl || 'https://via.placeholder.com/100'}" class="w-12 h-12 rounded-xl object-cover border border-gray-700">
+            <img src="${pUrl}" onerror="this.onerror=null;this.src='${fallbackUrl}';" class="w-12 h-12 rounded-xl object-cover border border-gray-700">
             <div class="flex-1">
               <div class="flex items-center justify-between">
                 <h4 class="text-sm font-bold text-white">${q.name}</h4>
@@ -474,7 +477,8 @@
             </button>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
       lucide.createIcons();
     }
 
